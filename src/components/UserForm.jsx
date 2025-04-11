@@ -1,14 +1,50 @@
 import { useState } from "react"
 import { useFormik } from "formik"
 import * as Yup from "yup"
-import axios from "axios"
 import { ToastContainer, toast } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 import { Circles } from 'react-loader-spinner';
 
 const UserForm = () => {
     const [loading, setLoading] = useState(false)
+    const [suggestedDomains, setSuggestedDomains] = useState([]);
+    const [show, setShow] = useState(false);
+    const [submittedData, setSubmittedData] = useState(null);
+    const commonDomains = ["gmail.com", "outlook.com","ghibli.com"];
 
+    const showHidePassword = () =>{
+        const passwordField = document.getElementById("password");
+        if(passwordField.type === "password"){
+            passwordField.type = "text";
+        } else {
+            passwordField.type = "password";
+        }
+    }
+
+    const showHideConfPassword = () =>{
+        const passwordField = document.getElementById("confirmPassword");
+        if(passwordField.type === "password"){
+            passwordField.type = "text";
+        } else {
+            passwordField.type = "password";
+        }
+    };
+    const handleEmailChange = (e) => {
+        const value = e.target.value;
+        formik.setFieldValue("PersonalEmail", value);
+        console.log("value-------",value)
+       const parts = value.split("@");
+       console.log("parts-------",parts)
+       if(parts.length === 2) {
+            const domain = parts[1].toLowerCase();
+            if (domain) {
+                const matches = commonDomains.filter((d) => d.startsWith(domain));
+                setSuggestedDomains(matches);
+            } else {
+                setSuggestedDomains([]);
+            }
+        }
+    };
     const formik = useFormik({
         initialValues: {
             fullname: "",
@@ -59,31 +95,28 @@ const UserForm = () => {
             vatNumber: Yup.string().when("account_type", {
                 is: "Business",
                 then:()=> Yup.string()
-                    .matches(/^\d{8,}$/, "VAT Number must be at least 8 digits")
+                    .matches(/^\d{9,}$/, "VAT Number must be at least 8 digits")
                     .notRequired()
             }),
-
             termsAndConditions: Yup.boolean().oneOf([true], "You must accept the terms and conditions").required("You must accept the terms and conditions"),
         }),
         onSubmit: async (values, { setSubmitting, resetForm }) => {
             try {
                 setLoading(true)
-                // const userId = Math.floor(Math.random() * 10) + 1;
-                // const data = {
-                //     title: "foo",
-                //     body: "bar",
-                //     userId: userId
-                // };
-                // const response = await axios.post('https://jsonplaceholder.typicode.com/posts',data )
-                // console.log("api_resonse", response.data.data);
+                setTimeout(() => { 
+                    setSubmittedData(values);
+                    console.log(values)
+                    setShow(true);
+                    const userId = Math.floor(Math.random() * 10) + 1;
+                    toast.success(`Welcome ${values.fullname}! Your User ID is: ${userId}`)
+                }, 2000);
 
-                toast.success("Signup successful");
-                resetForm();
+                    resetForm();
+
             } catch (err) {
                 console.log(err)
-                toast.error("Failed to submit form.");
+                toast.error("Error: " + err.message)
             } finally {
-                setLoading(false)
                 setSubmitting(false)
             }
         }
@@ -91,6 +124,34 @@ const UserForm = () => {
     return (
         <div className="max-w-md  mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
             <ToastContainer />
+            {show ? (
+            <div>
+            <h2 className="text-2xl font-bold mb-6 text-center text-green-700">Signup Successful!</h2>
+            <div className="space-y-2 text-gray-800">
+              <p><strong>Full Name:</strong> {submittedData.fullname}</p>
+              <p><strong>Email:</strong> {submittedData.PersonalEmail}</p>
+              <p><strong>Account Type:</strong> {submittedData.account_type}</p>
+              {submittedData.account_type === "Business" && (
+                <>
+                  <p><strong>Company Name:</strong> {submittedData.companyName}</p>
+                  <p><strong>Business Email:</strong> {submittedData.businessEmail}</p>
+                  <p><strong>VAT Number:</strong> {submittedData.vatNumber}</p>
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                formik.resetForm();
+                setShow(false);
+                setSubmittedData(null);
+                setLoading(false);
+              }}
+              className="w-full mt-6 bg-blue-500 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded">
+              Start Over
+            </button>
+          </div>     
+        ):(
+            <div>
             <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">signup</h2>
             <form onSubmit={formik.handleSubmit} className="space-y-4">
                 <div>
@@ -108,13 +169,14 @@ const UserForm = () => {
                         <div className="text-red-500 text-sm">{formik.errors.fullname}</div>
                     ) : null}
                 </div>
+
                 <div>
                     <label htmlFor="PersonalEmail" className="block text-sm font-semibold mb-2">Email</label>
                     <input
                         type="email"
                         id="PersonalEmail"
                         name="PersonalEmail"
-                        onChange={formik.handleChange}
+                        onChange={handleEmailChange}
                         onBlur={formik.handleBlur}
                         value={formik.values.PersonalEmail}
                         className={`w-full border rounded px-3 py-2 ${formik.touched.PersonalEmail && formik.errors.PersonalEmail ? "border-red-500" : "border-gray-300"}`}
@@ -122,9 +184,30 @@ const UserForm = () => {
                     {formik.touched.PersonalEmail && formik.errors.PersonalEmail ? (
                         <div className="text-red-500 text-sm">{formik.errors.PersonalEmail}</div>
                     ) : null}
+                    
                 </div>
+                {suggestedDomains.length > 0 && formik.values.PersonalEmail.includes("@") && (
+                        <div className="mt-2 text-sm text-gray-600">
+                            {suggestedDomains.map((domain,index)=>{
+                                const name = formik.values.PersonalEmail.split("@")[0];
+                                console.log("name",name)
+                                console.log("domain",domain)
+                                const suggestedEmail = `${name}@${domain}`;
+                                console.log("suggestedEmail",suggestedEmail)
+                                return(
+                                    <li
+                                        key={index}
+                                        onClick={() => {formik.setFieldValue("PersonalEmail", suggestedEmail)
+                                        setSuggestedDomains([])
+                                        }}
+                                        >
+                                        {suggestedEmail}
+                                    </li>
+                                )
+                            })}
+                        </div>
+                    )}
                 <div>
-                {/* Password Strength Meter (Weak / Moderate / Strong) based on paƩern */}
                     <label htmlFor="password" className="block text-sm font-semibold mb-2">Password</label>
                     <input
                         type="password"
@@ -135,10 +218,18 @@ const UserForm = () => {
                         value={formik.values.password}
                         className={`w-full border rounded px-3 py-2 ${formik.touched.password && formik.errors.password ? "border-red-500" : "border-gray-300"}`}
                     />
+                    <button type="button" onClick={showHidePassword} className="text-sm">show password</button>
                     {formik.touched.password && formik.errors.password ? (
                         <div className="text-red-500 text-sm">{formik.errors.password}</div>
                     ) : null}
+                    <div className="mt-2">
+                        <div className={`h-2 rounded ${formik.values.password.length < 6 ? "bg-red-500" : formik.values.password.length < 8 ? "bg-yellow-500" : "bg-green-500"}`}></div>
+                        <div className="text-sm mt-1">
+                            {formik.values.password.length < 6 ? "Weak" : formik.values.password.length < 8 ? "Moderate" : "Strong"}
+                        </div>
+                    </div>
                 </div>
+
                 <div>
                     <label htmlFor="confirmPassword" className="block text-sm font-semibold mb-2">Confirm Password</label>
                     <input
@@ -150,10 +241,12 @@ const UserForm = () => {
                         value={formik.values.confirmPassword}
                         className={`w-full border rounded px-3 py-2 ${formik.touched.confirmPassword && formik.errors.confirmPassword ? "border-red-500" : "border-gray-300"}`}
                     />
+                    <button type="button" onClick={showHideConfPassword}>show password</button>
                     {formik.touched.confirmPassword && formik.errors.confirmPassword ? (
                         <div className="text-red-500 text-sm">{formik.errors.confirmPassword}</div>
                     ) : null}
                 </div>
+
                 <div>
                     <label htmlFor="account_type" className="block text-sm font-semibold mb-2">Account Type</label>
                     <select
@@ -222,6 +315,7 @@ const UserForm = () => {
                         </div>
                     </div>
                 )}
+
                 <div className="flex items-center mb-4">
                     <input
                         type="checkbox"
@@ -237,30 +331,46 @@ const UserForm = () => {
                 {formik.touched.termsAndConditions && formik.errors.termsAndConditions ? (
                     <div className="text-red-500 text-sm">{formik.errors.termsAndConditions}</div>
                 ) : null}
+
                 <button
                     type="button"
                     onClick={() => formik.resetForm()}
-                    className="w-full bg-gray-300 hover:bg-gray-400 text-white font-semibold py-2 px-4 rounded transition"
+                    className="w-full bg-gray-600 hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded transition"
                 >
                     Reset
                 </button>
-                <button type="submit"
-                    disabled={formik.isSubmitting}
-                    className="w-full bg-blue-600 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded transition"
-                >
-                    {loading ?
-                        (<Circles
-                            height="40"
-                            width="40"
-                            color="#4fa94d"
-                            ariaLabel="circles-loading"
-                            wrapperStyle={{}}
-                            wrapperClass=""
-                            visible={true}
-                        />)
-                        : "Submit"}
+                
+                <button type="submit" disabled={!formik.isValid ||!formik.dirty|| formik.isSubmitting} 
+                className={`${
+                    !formik.isValid || !formik.dirty || formik.isSubmitting ? "bg-gray-300 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-700"
+                } text-white font-semibold py-2 px-4 rounded transition`}>
+                      
+                {loading ? (
+                    // console.log("loadingg"),
+                    //    console.log(loading),
+                    //    console.log("formik"),
+                    //    console.log(formik.values),
+                    //    console.log("ISVALID"),
+                    //    console.log(formik.isValid),
+                    //    console.log("issubmitting"),
+                    //    console.log(formik.isSubmitting),
+                <Circles
+                    height="40"
+                    width="40"
+                    color="#4fa94d"
+                    ariaLabel="circles-loading"
+                    wrapperStyle={{}}
+                    wrapperClass=""
+                    visible={true}
+                />
+                
+                ) : (
+                    "Submit"
+                )}
                 </button>
             </form>
+            </div>
+        )}
         </div>
     )
 }
